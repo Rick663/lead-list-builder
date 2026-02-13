@@ -91,6 +91,23 @@ To use the "Export to Sheets" feature, you need a Google Cloud Project with OAut
 -   Ensure `http://localhost:5173` is added to **Authorized JavaScript origins** in your Google Cloud Console.
 -   Wait 5 minutes for changes to propagate.
 
+## Deployment (Render.com)
+
+This app is configured for easy deployment on [Render](https://render.com).
+
+1.  **Create a New Web Service** on Render.
+2.  **Connect GitHub**: Select this repository.
+3.  **Settings**:
+    -   **Runtime**: Node
+    -   **Build Command**: `npm install && npm run build-client` (or just use the default `npm install` if it runs postinstall)
+    -   **Start Command**: `npm start`
+4.  **Environment Variables**:
+    -   Add all keys from your local `.env` (`GROQ_API_KEY`, `TAVILY_API_KEY`, etc.)
+    -   **IMPORTANT**: For Google OAuth to work in production:
+        1.  Go to Google Cloud Console > Credentials.
+        2.  Edit your Client ID.
+        3.  Add your Render URL (e.g., `https://lead-gen-app.onrender.com`) to **Authorized JavaScript origins**.
+
 ## License
 
 MIT

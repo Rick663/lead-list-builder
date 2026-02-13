@@ -7,14 +7,19 @@ const { searchForPerson } = require('./services/tavilyService');
 const { findEmail, enrichEmail } = require('./services/findymailService');
 const { createSheet, appendRows } = require('./services/sheetService');
 
+const path = require('path');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
 
-// status check
-app.get('/', (req, res) => {
+// Serve static files from the client/dist directory
+app.use(express.static(path.join(__dirname, '../client/dist')));
+
+// API Routes
+app.get('/api/health', (req, res) => {
     res.send('Lead Magnet API is running');
 });
 
@@ -148,6 +153,11 @@ app.post('/api/export-sheet', async (req, res) => {
         console.error('Error exporting sheet:', error);
         res.status(500).json({ error: error.message });
     }
+});
+
+// Catch-all handler for any request that doesn't match an API route
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
 });
 
 app.listen(PORT, () => {
