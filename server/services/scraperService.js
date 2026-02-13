@@ -8,7 +8,6 @@ const puppeteer = require('puppeteer');
 async function scrapeWebsite(url) {
   let browser = null;
   try {
-    console.log(`Puppeteer Executable Path: ${puppeteer.executablePath()}`);
     browser = await puppeteer.launch({
       headless: "new",
       args: [
