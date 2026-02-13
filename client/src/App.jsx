@@ -6,7 +6,7 @@ import { Loader2, CheckCircle2, Upload, Search, Download, ArrowRight, Building2,
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.PROD ? '/api' : 'http://localhost:5000/api';
 
 // --- Utility Components ---
 function cn(...inputs) {
@@ -111,7 +111,8 @@ function App() {
             setStep('results');
         } catch (err) {
             console.error(err);
-            setError(err.response?.data?.error || 'An error occurred. Please check the URL and try again.');
+            const errorMessage = err.response?.data?.error || err.message || 'An error occurred. Please check the URL and try again.';
+            setError(errorMessage);
             setStep('input');
         }
     };
