@@ -50,32 +50,44 @@ app.post('/api/generate-leads', async (req, res) => {
             const rolesToSearch = (company.targetRoles || []).slice(0, 2);
 
             const decisionMakers = await Promise.all(rolesToSearch.map(async (role) => {
-                console.log(`Searching for ${role} at ${company.companyName}...`);
-                const person = await searchForPerson(role, company.companyName);
+                try {
+                    console.log(`Searching for ${role} at ${company.companyName}...`);
+                    const person = await searchForPerson(role, company.companyName);
 
-                if (person) {
-                    // Try to find email
-                    let emailData = { email: null, status: 'skipped' };
-                    if (company.companyDomain) {
-                        emailData = await findEmail(person.name, company.companyDomain);
+                    if (person) {
+                        // Try to find email
+                        let emailData = { email: null, status: 'skipped' };
+                        try {
+                            if (company.companyDomain) {
+                                emailData = await findEmail(person.name, company.companyDomain);
+                            }
+                        } catch (e) {
+                            console.error(`Email find failed for ${person.name}:`, e.message);
+                        }
+
+                        // Try to enrich title
+                        let finalTitle = person.title;
+                        try {
+                            if (emailData.email) {
+                                const enrichment = await enrichEmail(emailData.email);
+                                if (enrichment.title) finalTitle = enrichment.title;
+                            }
+                        } catch (e) {
+                            console.error(`Enrichment failed for ${emailData.email}:`, e.message);
+                        }
+
+                        return {
+                            name: person.name,
+                            title: finalTitle,
+                            linkedin: person.linkedin,
+                            email: emailData.email || 'Not Found',
+                            emailStatus: emailData.status,
+                            company: company.companyName,
+                            domain: company.companyDomain
+                        };
                     }
-
-                    // Try to enrich title
-                    let finalTitle = person.title;
-                    if (emailData.email) {
-                        const enrichment = await enrichEmail(emailData.email);
-                        if (enrichment.title) finalTitle = enrichment.title;
-                    }
-
-                    return {
-                        name: person.name,
-                        title: finalTitle,
-                        linkedin: person.linkedin,
-                        email: emailData.email || 'Not Found',
-                        emailStatus: emailData.status,
-                        company: company.companyName,
-                        domain: company.companyDomain
-                    };
+                } catch (error) {
+                    console.error(`Error processing role ${role} for ${company.companyName}:`, error.message);
                 }
                 return null;
             }));
