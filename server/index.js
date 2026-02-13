@@ -40,48 +40,34 @@ app.post('/api/generate-leads', async (req, res) => {
         console.log('Analyzing content and generating leads...');
         const analysisResult = await analyzeAndGenerateLeads(scrapedData);
 
-        // 3. Find Decision Makers (Tavily) & Enrich (Findymail)
-        const leads = [];
-        const enrichedCompanies = [];
+        const companiesToProcess = (analysisResult.leads || []).slice(0, 2);
 
-        const companiesToProcess = (analysisResult.leads || []).slice(0, 3); // Limit to 3 companies
-
-        for (const company of companiesToProcess) {
+        // Process all companies in parallel
+        const enrichedCompanies = await Promise.all(companiesToProcess.map(async (company) => {
             console.log(`Processing company: ${company.companyName}`);
-            const decisionMakers = [];
 
-            // Limit to top 2 roles per company to save API calls (3 * 2 = 6 calls total)
+            // For each company, search up to 2 roles in parallel
             const rolesToSearch = (company.targetRoles || []).slice(0, 2);
 
-            for (const role of rolesToSearch) {
-                console.log(`Searching for ${role} at ${company.companyName} via Tavily...`);
-
-                // 1. Search for person
+            const decisionMakers = await Promise.all(rolesToSearch.map(async (role) => {
+                console.log(`Searching for ${role} at ${company.companyName}...`);
                 const person = await searchForPerson(role, company.companyName);
 
                 if (person) {
-                    console.log(`Found: ${person.name} (${person.title})`);
-
-                    // 2. Find Email (Findymail) - Only if we found a person
-                    console.log(`Finding email for ${person.name}...`);
+                    // Try to find email
                     let emailData = { email: null, status: 'skipped' };
-
                     if (company.companyDomain) {
                         emailData = await findEmail(person.name, company.companyDomain);
                     }
 
-                    // 3. Enrich with Official Job Title (Priority: Findymail > Tavily)
+                    // Try to enrich title
                     let finalTitle = person.title;
                     if (emailData.email) {
-                        console.log(`Enriching email ${emailData.email} to verify job title...`);
                         const enrichment = await enrichEmail(emailData.email);
-                        if (enrichment.title) {
-                            console.log(`Findymail Verified Title: ${enrichment.title}`);
-                            finalTitle = enrichment.title;
-                        }
+                        if (enrichment.title) finalTitle = enrichment.title;
                     }
 
-                    const leadData = {
+                    return {
                         name: person.name,
                         title: finalTitle,
                         linkedin: person.linkedin,
@@ -90,26 +76,25 @@ app.post('/api/generate-leads', async (req, res) => {
                         company: company.companyName,
                         domain: company.companyDomain
                     };
-
-                    decisionMakers.push(leadData);
-                    leads.push(leadData);
-                } else {
-                    console.log(`Could not find person for role: ${role}`);
                 }
+                return null;
+            }));
 
-                // Rate limiting niceness
-                await new Promise(resolve => setTimeout(resolve, 1000));
-            }
+            // Filter out nulls (failed searches)
+            const validDecisionMakers = decisionMakers.filter(dm => dm !== null);
 
-            enrichedCompanies.push({
+            return {
                 ...company,
-                decisionMakers
-            });
-        }
+                decisionMakers: validDecisionMakers
+            };
+        }));
+
+        // Flatten all decision makers into a single list for the main results
+        const allLeads = enrichedCompanies.flatMap(group => group.decisionMakers);
 
         res.json({
             companyAnalysis: analysisResult.companyAnalysis,
-            leads: leads,
+            leads: allLeads,
             groupedLeads: enrichedCompanies
         });
 

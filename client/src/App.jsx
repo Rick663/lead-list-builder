@@ -104,6 +104,8 @@ function App() {
             const response = await axios.post(`${API_URL}/generate-leads`, {
                 companyName,
                 companyUrl
+            }, {
+                timeout: 120000 // 2 minute timeout
             });
 
             clearInterval(progressTimer);
@@ -111,7 +113,16 @@ function App() {
             setStep('results');
         } catch (err) {
             console.error(err);
-            const errorMessage = err.response?.data?.error || err.message || 'An error occurred. Please check the URL and try again.';
+            let errorMessage = 'An error occurred. Please check the URL and try again.';
+
+            if (err.code === 'ECONNABORTED') {
+                errorMessage = 'The request took too long. The server might be busy or the website is hard to scrape. Please try again or with a different URL.';
+            } else if (err.response?.status === 504) {
+                errorMessage = 'The server timed out. This usually happens with large websites on the free tier. Try a simpler URL.';
+            } else {
+                errorMessage = err.response?.data?.error || err.message || errorMessage;
+            }
+
             setError(errorMessage);
             setStep('input');
         }
