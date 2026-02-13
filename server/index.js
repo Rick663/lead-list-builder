@@ -156,7 +156,7 @@ app.post('/api/export-sheet', async (req, res) => {
 });
 
 // Catch-all handler for any request that doesn't match an API route
-app.get('*', (req, res) => {
+app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
 });
 
